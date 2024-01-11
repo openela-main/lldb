@@ -1,32 +1,22 @@
 %global toolchain clang
-%global lldb_version 15.0.7
+%global lldb_version 16.0.6
 %global lldb_srcdir %{name}-%{lldb_version}.src
 
-# LTO disabled for now to fix the build
-%global _lto_cflags %{nil}
+%global gts_version 13
 
 Name:		lldb
 Version:	%{lldb_version}
 Release:	1%{?dist}
 Summary:	Next generation high-performance debugger
 
-License:	NCSA
+License:	Apache-2.0 WITH LLVM-exception OR NCSA
 URL:		http://lldb.llvm.org/
 Source0:	https://github.com/llvm/llvm-project/releases/download/llvmorg-%{lldb_version}/%{lldb_srcdir}.tar.xz
 Source1:	https://github.com/llvm/llvm-project/releases/download/llvmorg-%{lldb_version}/%{lldb_srcdir}.tar.xz.sig
 Source2:	release-keys.asc
 
-# TODO: Drop once 16.0.0 is out
-Patch0:		https://github.com/llvm/llvm-project/commit/6f59f302e4358b4dc869bc298c2b9c06aa716b60.diff
+Patch0: 0001-lldb-Change-LLVM_COMMON_CMAKE_UTILS-usage.patch
 
-
-# RHEL only: We build LLVM with clang, which now defaults to using the
-#   libstdc++ from gcc-toolset-12. Since we're linking some clang
-#   tools statically to some static libraries from LLVM, we
-#   need to use libstdc++12 as well. So, use gcc-toolset-12
-#   to compile clang.
-BuildRequires: gcc-toolset-12-gcc-c++
-BuildRequires: gcc-toolset-12-annobin-plugin-gcc
 BuildRequires:	clang
 BuildRequires:	cmake
 BuildRequires:	ninja-build
@@ -42,6 +32,7 @@ BuildRequires:	libxml2-devel
 BuildRequires:	libedit-devel
 BuildRequires:	python3-lit
 BuildRequires:	multilib-rpm-config
+BuildRequires:	gcc-toolset-%{gts_version}-gdb
 
 Requires:	python3-lldb
 
@@ -78,11 +69,17 @@ The package contains the LLDB Python module.
 
 %build
 
+%ifarch %ix86
+# Linking liblldb.so goes out of memory even with ThinLTO and a single link job.
+%global _lto_cflags %nil
+%endif
+
 %cmake  -GNinja \
 	-DCMAKE_BUILD_TYPE=RelWithDebInfo \
 	-DCMAKE_SKIP_RPATH:BOOL=ON \
 	-DLLVM_LINK_LLVM_DYLIB:BOOL=ON \
 	-DLLVM_CONFIG:FILEPATH=/usr/bin/llvm-config-%{__isa_bits} \
+	-DLLVM_COMMON_CMAKE_UTILS=%{_libdir}/cmake/llvm \
 	\
 	-DLLDB_DISABLE_CURSES:BOOL=OFF \
 	-DLLDB_DISABLE_LIBEDIT:BOOL=OFF \
@@ -104,6 +101,11 @@ The package contains the LLDB Python module.
 %cmake_build
 
 %install
+
+# Use newer GDB for gdb-add-index step, as system GDB can't handle the LTO debuginfo.
+source scl_source enable gcc-toolset-%{gts_version}
+export GDB=`which gdb`
+
 %cmake_install
 
 %multilib_fix_c_header --file %{_includedir}/lldb/Host/Config.h
@@ -138,6 +140,21 @@ rm -f %{buildroot}%{python3_sitearch}/six.*
 %{python3_sitearch}/lldb
 
 %changelog
+* Wed Jul 05 2023 Nikita Popov <npopov@redhat.com> - 16.0.6-1
+- Update to LLVM 16.0.6
+
+* Wed Jun 28 2023 Nikita Popov <npopov@redhat.com> - 16.0.1-4
+- Use gcc-toolset-13-gdb for gdb-add-index
+
+* Tue Jun 06 2023 Nikita Popov <npopov@redhat.com> - 16.0.1-3
+- Disable LTO on i686 due to OOM
+
+* Fri May 05 2023 Nikita Popov <npopov@redhat.com> - 16.0.1-2
+- Build with LTO
+
+* Tue Apr 18 2023 Nikita Popov <npopov@redhat.com> - 16.0.1-1
+- Update to LLVM 16.0.1
+
 * Tue Jan 17 2023 Konrad Kleine <kkleine@redhat.com> - 15.0.7-1
 - Update to 15.0.7
 

@@ -1,27 +1,32 @@
 %global toolchain clang
-%global lldb_version 16.0.6
-%global lldb_srcdir %{name}-%{lldb_version}.src
 
 %global gts_version 13
+%global lldb_version 17.0.6
+#global rc_ver 4
+%global lldb_srcdir %{name}-%{lldb_version}%{?rc_ver:rc%{rc_ver}}.src
 
 Name:		lldb
-Version:	%{lldb_version}
+Version:	%{lldb_version}%{?rc_ver:~rc%{rc_ver}}
 Release:	1%{?dist}
 Summary:	Next generation high-performance debugger
 
 License:	Apache-2.0 WITH LLVM-exception OR NCSA
 URL:		http://lldb.llvm.org/
-Source0:	https://github.com/llvm/llvm-project/releases/download/llvmorg-%{lldb_version}/%{lldb_srcdir}.tar.xz
-Source1:	https://github.com/llvm/llvm-project/releases/download/llvmorg-%{lldb_version}/%{lldb_srcdir}.tar.xz.sig
+Source0:	https://github.com/llvm/llvm-project/releases/download/llvmorg-%{lldb_version}%{?rc_ver:-rc%{rc_ver}}/%{lldb_srcdir}.tar.xz
+Source1:	https://github.com/llvm/llvm-project/releases/download/llvmorg-%{lldb_version}%{?rc_ver:-rc%{rc_ver}}/%{lldb_srcdir}.tar.xz.sig
 Source2:	release-keys.asc
 
-Patch0: 0001-lldb-Change-LLVM_COMMON_CMAKE_UTILS-usage.patch
+# Backport from https://github.com/llvm/llvm-project/pull/70443
+Patch:		0001-lldb-Replace-the-usage-of-module-imp-with-module-imp.patch
+# Backport from https://github.com/llvm/llvm-project/pull/70445
+Patch:		0001-lldb-Adapt-code-to-Python-3.13.patch
 
 BuildRequires:	clang
 BuildRequires:	cmake
 BuildRequires:	ninja-build
 BuildRequires:	llvm-devel = %{version}
 BuildRequires:	llvm-test = %{version}
+BuildRequires:	llvm-cmake-utils = %{version}
 BuildRequires:	clang-devel = %{version}
 BuildRequires:	ncurses-devel
 BuildRequires:	swig
@@ -68,6 +73,7 @@ The package contains the LLDB Python module.
 %autosetup -n %{lldb_srcdir} -p2
 
 %build
+%global _lto_cflags -flto=thin
 
 %ifarch %ix86
 # Linking liblldb.so goes out of memory even with ThinLTO and a single link job.
@@ -79,8 +85,7 @@ The package contains the LLDB Python module.
 	-DCMAKE_SKIP_RPATH:BOOL=ON \
 	-DLLVM_LINK_LLVM_DYLIB:BOOL=ON \
 	-DLLVM_CONFIG:FILEPATH=/usr/bin/llvm-config-%{__isa_bits} \
-	-DLLVM_COMMON_CMAKE_UTILS=%{_libdir}/cmake/llvm \
-	\
+	-DLLVM_COMMON_CMAKE_UTILS=%{_datadir}/llvm/cmake \
 	-DLLDB_DISABLE_CURSES:BOOL=OFF \
 	-DLLDB_DISABLE_LIBEDIT:BOOL=OFF \
 	-DLLDB_DISABLE_PYTHON:BOOL=OFF \
@@ -95,6 +100,7 @@ The package contains the LLDB Python module.
 	-DPYTHON_VERSION_MINOR:STRING=$(%{__python3} -c "import sys; print(sys.version_info.minor)") \
 	-DLLVM_EXTERNAL_LIT=%{_bindir}/lit \
 	-DCLANG_LINK_CLANG_DYLIB=ON \
+	-DCLANG_RESOURCE_DIR=$(realpath --relative-to=/usr/bin %{clang_resource_dir}) \
 	-DLLVM_LIT_ARGS="-sv \
 	--path %{_libdir}/llvm" \
 
@@ -140,6 +146,12 @@ rm -f %{buildroot}%{python3_sitearch}/six.*
 %{python3_sitearch}/lldb
 
 %changelog
+* Mon Dec 11 2023 Timm Bäder <tbaeder@redhat.com> - 17.0.6-1
+- Update to 17.0.6
+
+* Wed Oct 04 2023 Timm Bäder <tbaeder@redhat.com> - 17.0.1-1
+- Update to 17.0.1
+
 * Wed Jul 05 2023 Nikita Popov <npopov@redhat.com> - 16.0.6-1
 - Update to LLVM 16.0.6
 

@@ -1,0 +1,28 @@
+From c0e0fdd99c372096a4e018d57443f2d842bb510a Mon Sep 17 00:00:00 2001
+From: Tom Stellard <tstellar@redhat.com>
+Date: Fri, 28 Apr 2023 15:42:55 -0700
+Subject: [PATCH] lldb: Disable std vector pretty printer
+
+---
+ lldb/source/Plugins/Language/CPlusPlus/CPlusPlusLanguage.cpp | 5 -----
+ 1 file changed, 5 deletions(-)
+
+diff --git a/lldb/source/Plugins/Language/CPlusPlus/CPlusPlusLanguage.cpp b/lldb/source/Plugins/Language/CPlusPlus/CPlusPlusLanguage.cpp
+index 1b152c16eac2..a2b7aa4672bf 100644
+--- a/lldb/source/Plugins/Language/CPlusPlus/CPlusPlusLanguage.cpp
++++ b/lldb/source/Plugins/Language/CPlusPlus/CPlusPlusLanguage.cpp
+@@ -1089,11 +1089,6 @@ static void LoadLibStdcppFormatters(lldb::TypeCategoryImplSP cpp_category_sp) {
+   SyntheticChildren::Flags stl_deref_flags = stl_synth_flags;
+   stl_deref_flags.SetFrontEndWantsDereference();
+ 
+-  cpp_category_sp->AddTypeSynthetic(
+-      "^std::vector<.+>(( )?&)?$", eFormatterMatchRegex,
+-      SyntheticChildrenSP(new ScriptedSyntheticChildren(
+-          stl_synth_flags,
+-          "lldb.formatters.cpp.gnu_libstdcpp.StdVectorSynthProvider")));
+   cpp_category_sp->AddTypeSynthetic(
+       "^std::map<.+> >(( )?&)?$", eFormatterMatchRegex,
+       SyntheticChildrenSP(new ScriptedSyntheticChildren(
+-- 
+2.31.1
+

@@ -1,7 +1,11 @@
 %global toolchain clang
 
+# Opt out of https://fedoraproject.org/wiki/Changes/fno-omit-frame-pointer
+# https://bugzilla.redhat.com/show_bug.cgi?id=2158587
+%undefine _include_frame_pointers
+
 %global gts_version 13
-%global lldb_version 17.0.6
+%global lldb_version 18.1.8
 #global rc_ver 4
 %global lldb_srcdir %{name}-%{lldb_version}%{?rc_ver:rc%{rc_ver}}.src
 
@@ -15,11 +19,6 @@ URL:		http://lldb.llvm.org/
 Source0:	https://github.com/llvm/llvm-project/releases/download/llvmorg-%{lldb_version}%{?rc_ver:-rc%{rc_ver}}/%{lldb_srcdir}.tar.xz
 Source1:	https://github.com/llvm/llvm-project/releases/download/llvmorg-%{lldb_version}%{?rc_ver:-rc%{rc_ver}}/%{lldb_srcdir}.tar.xz.sig
 Source2:	release-keys.asc
-
-# Backport from https://github.com/llvm/llvm-project/pull/70443
-Patch:		0001-lldb-Replace-the-usage-of-module-imp-with-module-imp.patch
-# Backport from https://github.com/llvm/llvm-project/pull/70445
-Patch:		0001-lldb-Adapt-code-to-Python-3.13.patch
 
 BuildRequires:	clang
 BuildRequires:	cmake
@@ -75,12 +74,7 @@ The package contains the LLDB Python module.
 %build
 %global _lto_cflags -flto=thin
 
-%ifarch %ix86
-# Linking liblldb.so goes out of memory even with ThinLTO and a single link job.
-%global _lto_cflags %nil
-%endif
-
-%cmake  -GNinja \
+%cmake -GNinja \
 	-DCMAKE_BUILD_TYPE=RelWithDebInfo \
 	-DCMAKE_SKIP_RPATH:BOOL=ON \
 	-DLLVM_LINK_LLVM_DYLIB:BOOL=ON \
@@ -135,17 +129,28 @@ rm -f %{buildroot}%{python3_sitearch}/six.*
 %files
 %license LICENSE.TXT
 %{_bindir}/lldb*
+# Usually, *.so symlinks are kept in devel subpackages. However, the python
+# bindings depend on this symlink at runtime.
+%{_libdir}/*.so
 %{_libdir}/liblldb.so.*
 %{_libdir}/liblldbIntelFeatures.so.*
 
 %files devel
 %{_includedir}/lldb
-%{_libdir}/*.so
 
 %files -n python3-lldb
 %{python3_sitearch}/lldb
 
 %changelog
+* Wed Jul 17 2024 Konrad Kleine <kkleine@redhat.com> - 18.1.8-1
+- Update to 18.1.8
+
+* Wed Jun 05 2024 Konrad Kleine <kkleine@redhat.com> - 18.1.6-3
+- Rebuild against clang-18.1.6-2 which defaults to DWARF4
+
+* Mon Jun 03 2024 Konrad Kleine <kkkleine@redhat.com> - 18.1.6-1
+- Update to 18.1.6
+
 * Mon Dec 11 2023 Timm Bäder <tbaeder@redhat.com> - 17.0.6-1
 - Update to 17.0.6
 
